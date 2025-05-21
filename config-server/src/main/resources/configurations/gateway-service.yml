@@ -1,0 +1,129 @@
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+      routes:
+        - id: authentication-service-auth
+          uri: lb://AUTHENTICATION-SERVICE
+          predicates:
+            - Path=/api/v1/auth/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/(?<segment>.*), /$\{segment}
+        - id: authentication-service-employees
+          uri: lb://AUTHENTICATION-SERVICE
+          predicates:
+            - Path=/api/v1/employees/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/(?<segment>.*), /$\{segment}
+            - AddRequestHeader=X-Forwarded-Prefix, /api/v1/employees
+        - id: authentication-service-users
+          uri: lb://AUTHENTICATION-SERVICE
+          predicates:
+            - Path=/api/v1/users/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/(?<segment>.*), /$\{segment}
+            - AddRequestHeader=X-Forwarded-Prefix, /api/v1/users
+        - id: authentication-service-users
+          uri: lb://AUTHENTICATION-SERVICE
+          predicates:
+            - Path=/api/v1/admin/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/(?<segment>.*), /$\{segment}
+            - AddRequestHeader=X-Forwarded-Prefix, /api/v1/admin
+        - id: authentication-service-partner
+          uri: lb://AUTHENTICATION-SERVICE
+          predicates:
+            - Path=/api/v1/projects/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/(?<segment>.*), /$\{segment}
+            - AddRequestHeader=X-Forwarded-Prefix, /api/v1/projects
+        - id: tickets-service
+          uri: lb://TICKETS
+          predicates:
+            - Path=/api/v1/tickets/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/(?<segment>.*), /$\{segment}
+            - AddRequestHeader=X-Forwarded-Prefix, /api/v1/tickets
+        - id: tickets-service-solutions
+          uri: lb://TICKETS
+          predicates:
+            - Path=/api/v1/solutions/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/(?<segment>.*), /$\{segment}
+            - AddRequestHeader=X-Forwarded-Prefix, /api/v1/solutions
+        - id: tickets-service-stats
+          uri: lb://TICKETS
+          predicates:
+            - Path=/api/v1/statistics/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/(?<segment>.*), /$\{segment}
+            - AddRequestHeader=X-Forwarded-Prefix, /api/v1/statistics
+        - id: tickets-service-comments
+          uri: lb://TICKETS
+          predicates:
+            - Path=/api/v1/comments/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/(?<segment>.*), /$\{segment}
+            - AddRequestHeader=X-Forwarded-Prefix, /api/v1/comments
+        - id: tickets-service-logs
+          uri: lb://TICKETS
+          predicates:
+            - Path=/api/v1/logs/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/(?<segment>.*), /$\{segment}
+            - AddRequestHeader=X-Forwarded-Prefix, /api/v1/logs
+        - id: notification-service
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/(?<segment>.*), /$\{segment}
+            - AddRequestHeader=X-Forwarded-Prefix, /api/v1/notifications
+        - id: notification-service-websocket
+          uri: lb:ws://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/ws/**
+          filters:
+            - RemoveRequestHeader=Cookie
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "${FRONTEND_URL:http://localhost:4200}"  # Externalize the URL
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            maxAge: 3600  # Cache preflight requests for 1 hour
+            allowCredentials: true
+            exposedHeaders:
+              - Authorization
+              - Sec-WebSocket-Accept
+  webflux:
+    websocket:
+      max-frame-payload-length: 65536
+      idle-timeout: 300000
+  web:
+    resources:
+      static-locations: classpath:/static/,file:./public/
+
+server:
+  port: 8222
+
+

@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  mail-dev:
+    container_name: mail-dev-bsn
+    image: maildev/maildev
+    ports:
+      - 1080:1080
+      - 1025:1025
+    networks:
+      - microservices-net
+    restart: always
+
+  zipkin:
+    container_name: zipkin
+    image: openzipkin/zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - microservices-net
+    restart: always
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "22181:2181"
+    networks:
+      - microservices-net
+    restart: always
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: ms_kafka
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+    networks:
+      - microservices-net
+    restart: always
+
+  # Configuration server - must start first for other services
+  config-server:
+    image: windlogs/config-server:${BUILD_NUMBER}
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    networks:
+      - microservices-net
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    restart: always
+
+  # Discovery server - starts after config server
+  discovery:
+    image: windlogs/discovery:${BUILD_NUMBER}
+    container_name: discovery
+    ports:
+      - "8761:8761"
+    networks:
+      - microservices-net
+    depends_on:
+      - config-server
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+    restart: always
+
+  # Authentication service
+  authentication:
+    image: windlogs/authentication:${BUILD_NUMBER}
+    container_name: authentication
+    ports:
+      - "8088:8088"
+    networks:
+      - microservices-net
+    depends_on:
+      - config-server
+      - discovery
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+    restart: always
+
+  # Gateway service
+  gateway:
+    image: windlogs/gateway:${BUILD_NUMBER}
+    container_name: gateway
+    ports:
+      - "8222:8222"
+    networks:
+      - microservices-net
+    depends_on:
+      - config-server
+      - discovery
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+    restart: always
+
+  # Notification service
+  notification:
+    image: windlogs/notification:${BUILD_NUMBER}
+    container_name: notification
+    ports:
+      - "8084:8084"
+    networks:
+      - microservices-net
+    depends_on:
+      - config-server
+      - discovery
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    restart: always
+
+  # Tickets service
+  tickets:
+    image: windlogs/tickets:${BUILD_NUMBER}
+    container_name: tickets
+    ports:
+      - "8083:8083"
+    networks:
+      - microservices-net
+    depends_on:
+      - config-server
+      - discovery
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    restart: always
+
+networks:
+  microservices-net:
+    driver: bridge 
